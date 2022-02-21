@@ -1,0 +1,148 @@
+---
+title: "Standing On The Shoulders Of Prime Ministers"
+abstract: Gathering data from outside sources on the longevity of the Prime Ministers of India. With this data we can begin drawing conclusions about the life expectancy and its relation to political role. Given we only look at the prime minister position this can be a good starting point to generate links between health and the role of political leaders.
+author: "Nicholas Bosco"
+date: "20/02/2022"
+thanks: "[https://github.com/bosconic/bosconic] Link to Githup Repo"
+output: pdf_document
+bibliography: references.bib
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(rvest)
+library(xml2)
+library(tidyverse)
+library(knitr)
+library(bookdown)
+
+# extracting Indian Prime Minister INFO
+
+raw_data <- read_html("https://en.wikipedia.org/wiki/List_of_prime_ministers_of_India")
+
+write_html(raw_data, "pms.html")
+```
+# Introduction
+Many things on this plant has a cycle there always seems to be a beginning, middle and end. But the lives we live often get condensed into those three categories, just with different titles: birth, age and death. No matter who you are or how powerful you may be perceived to be death cannot escape anyone but death is not always a gloomy feeling, there is some lessons learned after the passing of one person. By understanding the beginning, middle and end of one's life we can begin to fill the gaps of how that person turned out, we can begin to generate ideas about factors outside of our control by reading these three markers of one's life.
+
+For the purpose of this paper I have decided to look into the markers (birth, age and death) of the Indian Prime Ministers to get a glimpse of what the life expectancy of a political leader is, usually in history political leaders are in constant worry and being a leader can take a huge toll on their health, look at the Roman Emperor Julius Cesar he was assassinated by the people of Rome for the terrible job he has done. But after web scraping the Wikipedia page "List of Indian Prime Ministers"[@wikipedia_2022] the data produced gives a new narrative. Maybe the suggestion that being prime minister of one of the most populated countries in the world has its perks after all.
+
+# Data Source
+This work cannot be done without acknowledging my sources of where I got the raw data as well as the code to split/organize the data. For the content piece this would not be possible if the Wikipedia page on the list of prime ministers did not exist [@wikipedia_2022]. To be honest the Wikipedia page was a bit of an issue to use with the selector too as it gave problems with parsing the data. I had this battle of trying to be specific with the html code I chose as it did not translate what I had though I had selected in my head but ended up giving me the information I did not need. I had found it within myself the only solution would be to capture a broad scope of the data needed and then sift through the table of the parsed data and manually draw out the names and dates I needed to generate an appropriate table for, this method was not at all fun and proved to be quite tedious, however it provided the expected result. I feel there was a simpler way to do this but that is only after I had finished gathering the data.
+
+
+
+```{r inspecting, echo=FALSE, message=FALSE, include=FALSE}
+# playing inspector gadget, thanks to selector gadget tool
+
+raw_data <- read_html("pms.html")
+
+parsed_data<-
+raw_data %>%
+  html_nodes("td") %>% #could not get all of the specific prime ministers wanted so i opted for more data and to clean futher
+  html_text()
+
+```
+
+```{r extractmanually, echo=FALSE, message=FALSE, include=FALSE}
+# Clean data byt selecting the specific prime ministers reading the raw text of 310 obs widdled down to just 18 obs.
+
+data <-
+  tibble(raw_text = parsed_data)
+
+inital_clean <-
+data[c(13, 36, 45, 53, 61, 78, 88, 97, 106, 118, 128, 136, 145, 155, 163, 171, 185, 200), ]
+
+
+```
+
+```{r cleanone, echo=FALSE, message=FALSE, include=FALSE}
+# More Cleaning, Thank you Rohan's Book tellingstorieswithdata.com
+clean_table_1<- 
+inital_clean|> 
+  mutate(raw_text= str_remove_all(raw_text, "\n")) |>
+  separate(raw_text, 
+            into = c("Name", "not_name"), 
+            sep = "\\(",
+            remove = FALSE) |> # The remove = FALSE option here means that we 
+  # keep the original column that we are separating.
+  separate(not_name, 
+            into = c("Date", "all_the_rest"), 
+            sep = "\\)",
+            remove = FALSE)
+```
+
+```{r cleantwo, echo=FALSE, message=FALSE, include=FALSE}
+# second round of cleaning thank you Rohan tellingstorieswithdata.com
+clean_table_2 <- 
+ clean_table_1 |> 
+  select(Name, Date) |> 
+  separate(Date, into = c("Birth", "Died"), sep = "–", remove = FALSE) |> # The 
+  # PMs who have died have their birth and death years separated by a hyphen, but 
+  # we need to be careful with the hyphen as it seems to be a slightly odd type of 
+  # hyphen and we need to copy/paste it.
+  mutate(Birth = str_remove_all(Birth, "born"),
+         Birth = str_trim(Birth)
+         ) |> # Alive PMs have slightly different format
+  select(-Date) |> 
+  mutate(Name = str_remove(Name, "\n")) |> # Remove some html tags that remain
+  mutate_at(vars(Birth, Died), ~as.integer(.)) |> # Change birth and death to integers
+  mutate(Age_at_Death = Died - Birth) |>  # Add column of the number of years they lived
+  distinct() # Some of the PMs had two goes at it.
+```
+
+```{r table, echo=FALSE, message=FALSE}
+# generating proper table thanks to Rohan's code in the book Telling Stories with data" tellingstorieswithdata.com
+clean_table_2 |>
+  knitr::kable(
+    caption = "The Longevity Of the India's Prime Ministers",
+    col.names = c("Prime Minister", "Birth Year","Death Year", "Age at Death"),
+    booktabs = TRUE,
+    linestep = ""
+  )
+```
+# Findings
+My initial hypothesis was that because India has one of the largest populations in the world, there can be lots of stress associated with the task of leading a country with about 1.38 billion people [@citeindiapopulationdata]. After gathering the data, I can see this was not the case as you can see from the table \@ref(tab:table). Gulzarilal Nanda, lived to be 100 years old. Which in itself proves that he had really good health genes but disproved my hypothesis. The shortest life expectancy of the Prime Ministers was Rajiv Gandhi who passed on at the age of 47, so there is a gap between the oldest prime minister and the youngest. 
+
+
+# Acknowledgements
+As for the organization of the data itself I have a few people to thank firstly the creator of the R program itself[@citer], as this is how I am able to grapple with the data I hunted for. Secondly the creator of the rvest package [@citervest] as it was the tool that helped me tap into my detective skills to sift through the data to collect the info from the wikipedia page. The creator of the tidyverse package [@citetidyverse] helped me tremendously when it came to the organization of the data which is the backbone of my R knowledge. Finally I would like to give thanks to the code provided in Rohan Alexander's book *telling stories with data* [@citealexander] as it provided me the knowledge and specific code needed to execute the overall findings of this paper, especially when it came to managing the dates and names of the Prime Ministers of India.
+
+# Looking Ahead
+Some thing I can improve on for the future would be to allot more time for myself, as the data gathering and cleaning took a lot more time than I thought I needed. Maybe a note to self to ensure that when using the web scraper tool is to be more selective on which parts of the website I use, as I did get pretty lucky finsing the names relatively quickly when genrating both table and graph.
+
+```{r graph,echo=FALSE, fig.cap="The Longevity of India's Prime Ministers", message=FALSE, warning=FALSE }
+# graphing the results thanks to Rohan's Code provided in his UK prime ministers example tellingstorieswithdata.com
+clean_table_2|> 
+  mutate(still_alive = if_else(is.na(Died), "Yes", "No"),
+         Died = if_else(is.na(Died), as.integer(2022), Died)) |> 
+  mutate(Name = as_factor(Name)) |> 
+  ggplot(aes(x = Birth, 
+             xend = Died,
+             y = Name,
+             yend = Name, 
+             color = still_alive)) +
+  geom_segment() +
+  labs(x = "Year of birth",
+       y = "Prime minister",
+       color = "PM is alive",
+       title = "The Longevity of India's Prime Ministers") +
+  theme_minimal() +
+  scale_color_brewer(palette = "Set1")
+```
+
+# References
+```{r citation, include=FALSE}
+#citations
+citation()
+citation("tidyverse")
+citation("knitr")
+citation("xml2")
+citation("rvest")
+citation("bookdown")
+#citation("https://data.worldbank.org/indicator/SP.POP.TOTL?locations=IN")
+#citation ("https://en.wikipedia.org/wiki/List_of_prime_ministers_of_India")
+#citation("https://www.tellingstorieswithdata.com/gather-data.html#web-scraping")
+```
+
+
